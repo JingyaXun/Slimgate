@@ -26,10 +26,11 @@ ser2.flushInput()
 #time.sleep(0.1)
 
 # initialize variables
-sensors = [0,0,0,0]
+sensors = [0,0,0,0,0] #represents five zones
 smartCard = 0
 gate = 0
-piggybackThreshold = 0
+pFlag = 0 #potential piggyback
+piggyback = 0
 shortFlag = 0
 alarm = 0
 incrementLock = 0
@@ -56,13 +57,23 @@ def int_check(s):
 	except(ValueError):
 		pass
 
+#Piggyback Detection
+def piggyback_check(sensors):
+	if sensors[0] == 1 and piggyback == 0:
+		pFlag = 1
+	if sensors[1] == 1 and piggyback == 1:
+		piggyback = 1
+		alarm = 1
+	if sensors[0] == 0 and sensors[1] == 0:
+		pFlag = 0
+		piggyback = 0
 
 Running = True
 
 print('Gate Running')
 #print('Zones are as follows:')
 #print('-----------------')
-#print('| 1 | 2 | 3 | 4 |')
+#print('| 1 | 2 | 3 | 4 | 5 |')
 #print('-----------------')
 
 #Loop to gather readings
@@ -89,7 +100,12 @@ while Running:
 
 	#Turn on alarm if alarm var is 1
 	if alarm == 1:
-		if sensors[0] == 0 and sensors[1] == 0 and sensors[2] == 0 and sensors[3] == 0 and sensors[4] == 0 and shortFlag == 0:
+		if piggyback == 1:
+			if sensors[0] == 0 and sensors[1] == 0:
+				pFlag = 0
+				piggyback = 0
+				alarm = 0
+		elif sensors[0] == 0 and sensors[1] == 0 and sensors[2] == 0 and sensors[3] == 0 and sensors[4] == 0:
 			alarm = 0
 			if startIdleTimer == True:
 				idleTimer = 0
@@ -189,8 +205,9 @@ while Running:
         #                piggyback = 1
         #if sensors[0] == 0 and sensors[1] == 0 and sensors[2] == 0 and sensors[3] == 0 and shortFlag == 0:
         #        piggyback = 0
-#Set state rules
 
+
+	#Set state rules
 	if currState == 1:
 		if sensors[0] == 1:
 			startIdleTimer = False
@@ -206,7 +223,7 @@ while Running:
 			currState = 3
 	elif currState == 3:
 		startIdleTimer = True
-		if smartCard == 1: #contactless reader
+		if smartCard == 1: #contactless card reader
 			startIdleTimer = False
 			idleTimer = 0
 			currState = 4
@@ -223,16 +240,24 @@ while Running:
 			idleTimer = 0
 			currState = 5
 	elif currState == 5:
-		#startGateTimer = True
-		if sensors[2] == 0 and shortFlag == 0:
+		startGateTimer = True
+		if sensors[2] == 0:
 			startGateTimer = False
 			gateTimer = 0
 			currState = 6
+		#piggyback Algorithm
+		piggyback_check(sensors)
 	elif currState == 6:
 		smartCard = 0
-		if sensors[3] == 1 or shortFlag == 0:
+		if sensors[3] == 1:
 			currState = 7
+		#piggyback Algorithm
+		piggyback_check(sensors)
 	elif currState == 7:
+		if sensors[4] == 1:
+			currState = 8
+		piggyback_check(sensors)
+	elif currState == 8:
 		gate = 0
 		ser3.write("c")
 		if incrementLock == 1:
