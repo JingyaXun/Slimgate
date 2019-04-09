@@ -1,0 +1,95 @@
+'System Configuration'
+
+Is=2,0,0       'Set In2 To Gen. Purpose Input, Active Low'
+Is=3,0,0       'Set In3
+
+Ms=256         'Set Step Resolution To 256 Steps/Step'
+Vi=50         'Set Initial Velocity To 500 Steps/Sec'
+A=500000        'adjust accel/decel/speed values'
+Vm=150000      ' max velocity
+D=A
+Rc=80          'use a good low value for run current'
+As=2           'set HmT mode on
+P=0
+Ao=512
+'<edit>
+
+Sm=1            'Set stall mode to keep running on a stall
+Sf=22           'Set the stall factor
+
+'</edit>
+
+'Main Program'
+
+PG 1 'Enter Program Mode At Address 1'
+    
+LB SU 'Label Program Su; Will Start On Power Up
+  R1 375000
+  CL G4          'Call G4 first so nothing happens until I2 is high'
+
+'Subroutines for input trigger events'
+LB G1
+  MA R1           'move absolute distance'
+  '<edit>
+  BR G5,I3=1      'break to subroutine G5 if I3 is high
+  'BR G5,St=1      break to subroutine G5 if exceed stall factor
+  '</edit>
+  'H               'suspend program execution until motion completes'
+  BR G3           'break to subroutine G3
+
+LB G2
+  MA 0           'move the rest of the way back'
+  '<edit>
+  'BR G6, St=1      break to subroutine G6 if exceed stall factor
+  '</edit> 
+  H
+  BR G4          'break to subroutine G4
+
+LB G3            'Halt execution until input goes low'
+  H
+  R2 333
+  CL G2,I2=0
+  BR G3
+
+LB G4            'Halt execution until input goes high'
+  H
+  CL G1,I2=1
+  BR G4
+
+
+'<edit>
+LB G5            'stall during downward motion
+  R2 555
+  SL 0           'Slew to zero speed (stop)
+  Er=0           'Clear the error flag
+  SL -50         'Drive toward the stop slowly
+  H              'Wait until motion completes
+  St=0           'Clear the stall flag
+  Er=0           'Clear the error flag
+  'BR G7,C2<=375000 break to subroutine G7 if current position is less than absolute position            
+  BR G3  
+
+LB G6            'stall during upward motion
+  SL 0           'Slew to zero speed (stop)
+  Er=0           'Clear the error flag
+  SL -50         'Drive toward the stop slowly
+  H              'Wait until motion completes
+  St=0           'Clear the stall flag
+  Er=0           'Clear the error flag
+  BR G8,C2>=0    'break to subroutine G8 if current position is greater than absolute position            
+  BR G4    
+
+LB G7
+  I2=0           'Set I2 to the opposite value
+  R1=375000-R1
+  BR G4
+
+LB G8
+  I2=1           'Set I2 to the opposite value 
+  BR G3
+   
+'</edit>
+
+E                  'Designate end of program
+PG                 'Exit to immediate mode'
+S                   'saves program'
